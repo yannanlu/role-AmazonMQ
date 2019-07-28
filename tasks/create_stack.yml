@@ -1,0 +1,50 @@
+---
+- name: Check name convention on {{amazonmq_cft}}
+  fail:
+    msg: "{{amazonmq_cft}} does not follow the name convention"
+  when: not amazonmq_cft|regex_search('^(single|dual|triple)_')
+ 
+- include: ../../ec2_launcher/tasks/query_sg.yml
+  vars:
+    sg_name: "{{amazonmq_sg_name}}"
+    key_name: "{{stack_name}}"
+
+- name: Create security group with profile in {{region}}
+  ec2_group:
+    name: "{{amazonmq_sg_name}}"
+    description: "A Security group for Amazon MQ Broker {{stack_name}}"
+    profile: "{{profile}}"
+    region: "{{region}}"
+    vpc_id: "{{vpc_id}}"
+    rules: "{{amazonmq_sg_rules}} + {{amazonmq_extra_sg_rules}}"
+    rules_egress:
+      - proto: all
+        cidr_ip: 0.0.0.0/0
+  when: profile != 'tower' and ec2_sg_info|length == 0
+
+- name: Create security group with tower in {{region}}
+  ec2_group:
+    name: "{{amazonmq_sg_name}}"
+    description: "A Security group for Amazon MQ Broker {{stack_name}}"
+    region: "{{region}}"
+    vpc_id: "{{vpc_id}}"
+    rules: "{{amazonmq_sg_rules}} + {{amazonmq_extra_sg_rules}}"
+    rules_egress:
+      - proto: all
+        cidr_ip: 0.0.0.0/0
+  when: profile == 'tower' and ec2_sg_info|length == 0
+
+- include: ../../ec2_launcher/tasks/query_sg.yml
+  vars:
+    sg_name: "{{amazonmq_sg_name}}"
+    key_name: "{{stack_name}}"
+  when: ec2_sg_info|length == 0
+
+- include: launch_stack_with_triple.yml
+  when: amazonmq_cft|regex_search('^triple_') 
+
+- include: launch_stack_with_single.yml
+  when: amazonmq_cft|regex_search('^single_') 
+
+- include: launch_stack_with_dual.yml
+  when: amazonmq_cft|regex_search('^dual_') 

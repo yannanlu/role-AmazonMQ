@@ -1,0 +1,55 @@
+---
+profile: default
+region: us-east-2
+vpc_id: vpc-bd94a7d5
+subnet_ids:
+  - subnet-de9606a4
+amazonmq_sg_name: "sg_{{stack_name}}_amazonmq_test"
+amazonmq_admin_port: 8162
+amazonmq_broker_port: 61617
+amazonmq_cft: single_broker_cft.json
+amazonmq_username: ylutest
+amazonmq_passwd: ylutest123456
+amazonmq_pause_for_down: 30
+amazonmq_engine_version: 5.15.8
+amazonmq_host_instance_type: mq.t2.micro
+amazonmq_logs_general: 'false'
+amazonmq_logs_audit: 'false'
+amazonmq_publicly_accessible: 'false'
+amazonmq_auto_minor_version_upgrade: 'false'
+
+amazonmq_sg_rules:
+  - proto: tcp
+    from_port: "{{amazonmq_broker_port}}"
+    to_port: "{{amazonmq_broker_port}}"
+    cidr_ip: 10.231.8.0/23
+  - proto: tcp
+    from_port: "{{amazonmq_broker_port}}"
+    to_port: "{{amazonmq_broker_port}}"
+    cidr_ip: 10.231.48.0/23
+  - proto: tcp
+    from_port: "{{amazonmq_broker_port}}"
+    to_port: "{{amazonmq_broker_port}}"
+    cidr_ip: 10.40.108.0/22
+  - proto: tcp
+    from_port: "{{amazonmq_admin_port}}"
+    to_port: "{{amazonmq_admin_port}}"
+    cidr_ip: 10.40.108.0/22
+  - proto: tcp
+    from_port: "{{amazonmq_broker_port}}"
+    to_port: "{{amazonmq_broker_port}}"
+    cidr_ip: 10.110.24.0/22
+  - proto: tcp
+    from_port: "{{amazonmq_admin_port}}"
+    to_port: "{{amazonmq_admin_port}}"
+    cidr_ip: 10.110.24.0/22
+  - proto: tcp
+    from_port: "{{amazonmq_admin_port}}"
+    to_port: "{{amazonmq_admin_port}}"
+    cidr_ip: 170.140.0.0/16
+  - proto: tcp
+    from_port: "{{amazonmq_broker_port}}"
+    to_port: "{{amazonmq_broker_port}}"
+    cidr_ip: 170.140.0.0/16
+
+amazonmq_extra_sg_rules: []

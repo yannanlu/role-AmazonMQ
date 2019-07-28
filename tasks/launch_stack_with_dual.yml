@@ -1,0 +1,129 @@
+---
+- name: Set empty broker_ips
+  set_fact:
+    broker_ips: []
+
+- name: Create a stack for Amazon MQ Broker with profile in {{region}}
+  cloudformation:
+    stack_name: "{{stack_name}}"
+    state: present
+    profile: "{{profile}}"
+    region: "{{region}}"
+    disable_rollback: true
+    template: "roles/amazonmq/files/{{amazonmq_cft}}"
+    template_parameters:
+      Username: "{{amazonmq_username}}"
+      Password: "{{amazonmq_passwd|replace('\n', '')}}"
+      SecurityGroup: "{{ec2_sg_info[0].group_id}}"
+      Broker1SubnetId: "{{subnet_ids[0]}}"
+      Broker2SubnetId: "{{subnet_ids[1]}}"
+      EngineVersion: "{{amazonmq_engine_version}}"
+      HostInstanceType: "{{amazonmq_host_instance_type}}"
+      LogsGeneral: "{{amazonmq_logs_general}}"
+      LogsAudit: "{{amazonmq_logs_audit}}"
+      PubliclyAccessible: "{{amazonmq_publicly_accessible}}"
+      AutoMinorVersionUpgrade: "{{amazonmq_auto_minor_version_upgrade}}"
+    tags:
+      Stack: "{{stack_name}}-AamzonMQ-Broker"
+  when: profile != 'tower'
+  register: amq_stack_p
+
+- name: Add broker ip to broker_ips with profile
+  set_fact:
+    broker_ips: "{{broker_ips}} + ['{{item}}']"
+  with_items:
+    - "{{amq_stack_p.stack_outputs.Broker1Ip}}"
+    - "{{amq_stack_p.stack_outputs.Broker2Ip}}"
+  when: profile != 'tower' and amq_stack_p.stack_outputs is defined
+
+- name: Create a stack for Amazon MQ Broker with tower in {{region}}
+  cloudformation:
+    stack_name: "{{stack_name}}"
+    state: present
+    region: "{{region}}"
+    disable_rollback: true
+    template: "roles/amazonmq/files/{{amazonmq_cft}}"
+    template_parameters:
+      Username: "{{amazonmq_username}}"
+      Password: "{{amazonmq_passwd|replace('\n', '')}}"
+      SecurityGroup: "{{ec2_sg_info[0].group_id}}"
+      Broker1SubnetId: "{{subnet_ids[0]}}"
+      Broker2SubnetId: "{{subnet_ids[1]}}"
+      HostInstanceType: "{{amazonmq_host_instance_type}}"
+      LogsGeneral: "{{amazonmq_logs_general}}"
+      LogsAudit: "{{amazonmq_logs_audit}}"
+      PubliclyAccessible: "{{amazonmq_publicly_accessible}}"
+      AutoMinorVersionUpgrade: "{{amazonmq_auto_minor_version_upgrade}}"
+    tags:
+      Stack: "{{stack_name}}-AamzonMQ-Broker"
+  when: profile == 'tower'
+  register: amq_stack_k
+
+- name: Add broker ip to broker_ips with tower
+  set_fact:
+    broker_ips: "{{broker_ips}} + ['{{item}}']"
+  with_items:
+    - "{{amq_stack_k.stack_outputs.Broker1Ip}}"
+    - "{{amq_stack_k.stack_outputs.Broker2Ip}}"
+  when: profile == 'tower' and amq_stack_k.stack_outputs is defined
+
+- name: Display stack outputs for profile
+  debug:
+    msg: "{{amq_stack_p.stack_outputs}}"
+  when: profile != 'tower'
+
+- name: Display stack outputs for profile
+  debug:
+    msg: "{{amq_stack_k.stack_outputs}}"
+  when: profile == 'tower'
+
+- include: ../../ec2_launcher/tasks/update_sg.yml
+  vars:
+    sg_info: "{{ec2_sg_info}}"
+    my_sg_rules: "{{amazonmq_sg_rules}} + {{amazonmq_extra_sg_rules}}"
+    my_extra_sg_rules:
+      - proto: tcp
+        from_port: "{{amazonmq_broker_port}}"
+        to_port: "{{amazonmq_broker_port}}"
+        cidr_ip: "{{broker_ips[0]}}/32"
+      - proto: tcp
+        from_port: "{{amazonmq_broker_port}}"
+        to_port: "{{amazonmq_broker_port}}"
+        cidr_ip: "{{broker_ips[1]}}/32"
+  when: amazonmq_publicly_accessible == 'true'
+
+- include: ../../ec2_launcher/tasks/query_subnet.yml
+  vars:
+    my_subnet_ids: "{{subnet_ids}}"
+  when: amazonmq_publicly_accessible == 'false'
+
+- include: ../../ec2_launcher/tasks/update_sg.yml
+  vars:
+    sg_info: "{{ec2_sg_info}}"
+    my_sg_rules: "{{amazonmq_sg_rules}} + {{amazonmq_extra_sg_rules}}"
+    my_extra_sg_rules:
+      - proto: tcp
+        from_port: "{{amazonmq_broker_port}}"
+        to_port: "{{amazonmq_broker_port}}"
+        cidr_ip: "{{broker_ips[0]}}/32"
+      - proto: tcp
+        from_port: "{{amazonmq_broker_port}}"
+        to_port: "{{amazonmq_broker_port}}"
+        cidr_ip: "{{broker_ips[1]}}/32"
+      - proto: tcp
+        from_port: "{{amazonmq_broker_port}}"
+        to_port: "{{amazonmq_broker_port}}"
+        cidr_ip: "{{ec2_subnet_info[0].cidr_block}}"
+      - proto: tcp
+        from_port: "{{amazonmq_broker_port}}"
+        to_port: "{{amazonmq_broker_port}}"
+        cidr_ip: "{{ec2_subnet_info[1].cidr_block}}"
+      - proto: tcp
+        from_port: "{{amazonmq_admin_port}}"
+        to_port: "{{amazonmq_admin_port}}"
+        cidr_ip: "{{ec2_subnet_info[0].cidr_block}}"
+      - proto: tcp
+        from_port: "{{amazonmq_admin_port}}"
+        to_port: "{{amazonmq_admin_port}}"
+        cidr_ip: "{{ec2_subnet_info[1].cidr_block}}"
+  when: amazonmq_publicly_accessible == 'false'

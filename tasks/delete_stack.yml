@@ -1,0 +1,56 @@
+---
+- name: Delete the stack for Amazon MQ Broker with profile in {{region}}
+  cloudformation:
+    stack_name: "{{stack_name}}"
+    state: absent
+    profile: "{{profile}}"
+    region: "{{region}}"
+    disable_rollback: true
+    template: "roles/amazonmq/files/{{amazonmq_cft}}"
+    template_parameters:
+      Username: "{{amazonmq_username}}"
+      Password: "{{amazonmq_passwd|replace('\n', '')}}"
+    tags:
+      Stack: "{{stack_name}}-AamzonMQ-Broker"
+  when: profile != 'tower'
+  register: amq_stack_p
+
+- name: Delete the stack for Amazon MQ Broker with tower in {{region}}
+  cloudformation:
+    stack_name: "{{stack_name}}"
+    state: absent
+    region: "{{region}}"
+    disable_rollback: true
+    template: "roles/amazonmq/files/{{amazonmq_cft}}"
+    template_parameters:
+      Username: "{{amazonmq_username}}"
+      Password: "{{amazonmq_passwd|replace('\n', '')}}"
+    tags:
+      Stack: "{{stack_name}}-AamzonMQ-Broker"
+  when: profile == 'tower'
+  register: amq_stack_k
+
+- include: ../../ec2_launcher/tasks/query_sg.yml
+  vars:
+    sg_name: "{{amazonmq_sg_name}}"
+    key_name: "{{stack_name}}"
+
+- name: Pause for a while
+  pause:
+    seconds: "{{amazonmq_pause_for_down}}"
+  when: ec2_sg_info|length > 0
+
+- name: Take security group down with profile in {{region}}
+  ec2_group:
+    name: "{{amazonmq_sg_name}}"
+    profile: "{{profile}}"
+    region: "{{region}}"
+    state: 'absent'
+  when: profile != 'tower' and ec2_sg_info|length > 0
+
+- name: Take security group down with tower in {{region}}
+  ec2_group:
+    name: "{{amazonmq_sg_name}}"
+    region: "{{region}}"
+    state: 'absent'
+  when: profile == 'tower' and ec2_sg_info|length > 0

@@ -1,0 +1,509 @@
+Parameters:
+  SecurityGroups:
+    Type: List<AWS::EC2::SecurityGroup::Id>
+    Description: The list of security group IDs (0 minimum, 125 maximum) that authorize connections to brokers. If you specify none, we will use the default security group associated with your chosen subnets.
+    AllowedPattern: .+
+  EngineVersion:
+    Type: String
+    Description: We recommend using the latest engine version (selected by default).
+    AllowedPattern: \d\.\d{1,2}\.\d{1,2}
+    Default: 5.15.8
+  LogsGeneral:
+    Type: String
+    AllowedValues:
+    - 'true'
+    - 'false'
+    Description: Enables general logging.
+    Default: false
+  HostInstanceType:
+    Type: String
+    AllowedValues:
+    - mq.t2.micro
+    - mq.m4.large
+    - mq.m5.large
+    - mq.m5.xlarge
+    - mq.m5.2xlarge
+    - mq.m5.4xlarge
+    Description: Which EC2 instance do you want your brokers to run on?
+    Default: mq.t2.micro
+  AutoMinorVersionUpgrade:
+    Type: String
+    AllowedValues:
+    - 'true'
+    - 'false'
+    Description: Enables automatic upgrades to new minor versions for brokers, as Apache releases the versions. The automatic upgrades occur during the maintenance window of the broker or after a manual broker reboot.
+    Default: true
+  Broker0SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: The list of subnet IDs (2 maximum) that define into which Availability Zones and VPC the broker will be placed. A SINGLE_INSTANCE deployment requires exactly one subnet (for example, the default subnet). An ACTIVE_STANDBY_MULTI_AZ deployment requires exactly two subnets, each in a different Availability Zone.
+    AllowedPattern: .+
+  LogsAudit:
+    Type: String
+    AllowedValues:
+    - 'true'
+    - 'false'
+    Description: Enables audit logging. Every user management action made using JMS or the ActiveMQ Web Console is logged.
+    Default: false
+  Broker1SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: The list of subnet IDs (2 maximum) that define into which Availability Zones and VPC the broker will be placed. A SINGLE_INSTANCE deployment requires exactly one subnet (for example, the default subnet). An ACTIVE_STANDBY_MULTI_AZ deployment requires exactly two subnets, each in a different Availability Zone.
+    AllowedPattern: .+
+  Username:
+    Type: String
+    Description: The username of the ActiveMQ user. This value can contain only alphanumeric characters, dashes, periods, underscores, and tildes (- . _ ~). This value must be 2-100 characters long.
+    AllowedPattern: '[a-zA-Z0-9\-._~]{2,100}'
+  Broker2SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: The list of subnet IDs (2 maximum) that define into which Availability Zones and VPC the broker will be placed. A SINGLE_INSTANCE deployment requires exactly one subnet (for example, the default subnet). An ACTIVE_STANDBY_MULTI_AZ deployment requires exactly two subnets, each in a different Availability Zone.
+    AllowedPattern: .+
+  EngineType:
+    Type: String
+    AllowedValues:
+    - ACTIVEMQ
+    Description: We currently only support ActiveMQ (selected by default).
+    Default: ACTIVEMQ
+  PubliclyAccessible:
+    Type: String
+    AllowedValues:
+    - 'true'
+    - 'false'
+    Description: Enables connections from applications outside of the VPC that hosts the broker's subnets.
+    Default: true
+  Password:
+    NoEcho: true
+    Type: String
+    Description: The password of the user. This value must be 12-250 characters long, must contain at least 4 unique characters, and can only contain alphanumeric characters (a-z, A-Z, 0-9).
+    AllowedPattern: ^\p{Alnum}*(\p{Alnum})\p{Alnum}*((?!\1)\p{Alnum})\p{Alnum}*((?!\1|\2)\p{Alnum})\p{Alnum}*((?!\1|\2|\3)\p{Alnum})\p{Alnum}*$
+    MinLength: 12
+    MaxLength: 250
+Outputs:
+  Broker3ConnectionString:
+    Description: Use this connection string to connect to Broker3. This may not be what you want and is included for demonstration purposes only!
+    Value:
+      Fn::Join:
+      - ''
+      - - failover:(
+        - Fn::Select:
+          - 0
+          - Fn::GetAtt:
+            - Broker3
+            - OpenWireEndpoints
+        - )
+  Broker1ConnectionString:
+    Description: Use this connection string to connect to Broker1. This may not be what you want and is included for demonstration purposes only!
+    Value:
+      Fn::Join:
+      - ''
+      - - failover:(
+        - Fn::Select:
+          - 0
+          - Fn::GetAtt:
+            - Broker1
+            - OpenWireEndpoints
+        - )
+  Broker2ConnectionString:
+    Description: Use this connection string to connect to Broker2. This may not be what you want and is included for demonstration purposes only!
+    Value:
+      Fn::Join:
+      - ''
+      - - failover:(
+        - Fn::Select:
+          - 0
+          - Fn::GetAtt:
+            - Broker2
+            - OpenWireEndpoints
+        - )
+  AllBrokersConnectionString:
+    Description: Use this connection string to connect to ANY broker in the network. This may not be what you want and is included for demonstration purposes only!
+    Value:
+      Fn::Join:
+      - ''
+      - - failover:(
+        - Fn::Select:
+          - 0
+          - Fn::GetAtt:
+            - Broker1
+            - OpenWireEndpoints
+        - ','
+        - Fn::Select:
+          - 0
+          - Fn::GetAtt:
+            - Broker2
+            - OpenWireEndpoints
+        - ','
+        - Fn::Select:
+          - 0
+          - Fn::GetAtt:
+            - Broker3
+            - OpenWireEndpoints
+        - )
+Resources:
+  ConfigurationAssociation1:
+    Type: AWS::AmazonMQ::ConfigurationAssociation
+    Properties:
+      Broker:
+        Ref: Broker1
+      Configuration:
+        Revision:
+          Fn::GetAtt:
+          - Configuration1
+          - Revision
+        Id:
+          Ref: Configuration1
+  ConfigurationAssociation2:
+    Type: AWS::AmazonMQ::ConfigurationAssociation
+    Properties:
+      Broker:
+        Ref: Broker2
+      Configuration:
+        Revision:
+          Fn::GetAtt:
+          - Configuration2
+          - Revision
+        Id:
+          Ref: Configuration2
+  Broker3:
+    Type: AWS::AmazonMQ::Broker
+    Properties:
+      SecurityGroups:
+        Ref: SecurityGroups
+      EngineVersion:
+        Ref: EngineVersion
+      DeploymentMode: SINGLE_INSTANCE
+      EngineType:
+        Ref: EngineType
+      HostInstanceType:
+        Ref: HostInstanceType
+      AutoMinorVersionUpgrade:
+        Ref: AutoMinorVersionUpgrade
+      PubliclyAccessible:
+        Ref: PubliclyAccessible
+      Users:
+      - Username:
+          Ref: Username
+        Groups: [
+          ]
+        ConsoleAccess: true
+        Password:
+          Ref: Password
+      Logs:
+        Audit:
+          Ref: LogsAudit
+        General:
+          Ref: LogsGeneral
+      SubnetIds:
+        Ref: Broker2SubnetIds
+      BrokerName:
+        Fn::Join:
+        - ''
+        - - Ref: AWS::StackName
+          - -Broker3
+  Broker1:
+    Type: AWS::AmazonMQ::Broker
+    Properties:
+      SecurityGroups:
+        Ref: SecurityGroups
+      EngineVersion:
+        Ref: EngineVersion
+      DeploymentMode: SINGLE_INSTANCE
+      EngineType:
+        Ref: EngineType
+      HostInstanceType:
+        Ref: HostInstanceType
+      AutoMinorVersionUpgrade:
+        Ref: AutoMinorVersionUpgrade
+      PubliclyAccessible:
+        Ref: PubliclyAccessible
+      Users:
+      - Username:
+          Ref: Username
+        Groups: [
+          ]
+        ConsoleAccess: true
+        Password:
+          Ref: Password
+      Logs:
+        Audit:
+          Ref: LogsAudit
+        General:
+          Ref: LogsGeneral
+      SubnetIds:
+        Ref: Broker0SubnetIds
+      BrokerName:
+        Fn::Join:
+        - ''
+        - - Ref: AWS::StackName
+          - -Broker1
+  Configuration1:
+    Type: AWS::AmazonMQ::Configuration
+    Properties:
+      EngineVersion:
+        Ref: EngineVersion
+      Description: Generated configuration to build a network of brokers.
+      Data:
+        Fn::Base64:
+          Fn::Join:
+          - ''
+          - - |-
+              <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+              <broker xmlns="http://activemq.apache.org/schema/core" start="false">
+                <networkConnectors>
+                  <networkConnector conduitSubscriptions="false" consumerTTL="1" messageTTL="-1"  name="QueueConnector_ConnectingBroker_1_To_2" userName="
+            - Ref: Username
+            - '" uri="static:('
+            - Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                - Broker2
+                - OpenWireEndpoints
+            - |-
+              )">
+                    <excludedDestinations>
+                      <topic physicalName=">"/>
+                    </excludedDestinations>
+                  </networkConnector>    <networkConnector conduitSubscriptions="true" consumerTTL="1" messageTTL="-1"  name="TopicConnector_ConnectingBroker_1_To_2" userName="
+            - Ref: Username
+            - '" uri="static:('
+            - Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                - Broker2
+                - OpenWireEndpoints
+            - |-
+              )">
+                    <excludedDestinations>
+                      <queue physicalName=">"/>
+                    </excludedDestinations>
+                  </networkConnector>    <networkConnector conduitSubscriptions="false" consumerTTL="1" messageTTL="-1"  name="QueueConnector_ConnectingBroker_1_To_3" userName="
+            - Ref: Username
+            - '" uri="static:('
+            - Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                - Broker3
+                - OpenWireEndpoints
+            - |-
+              )">
+                    <excludedDestinations>
+                      <topic physicalName=">"/>
+                    </excludedDestinations>
+                  </networkConnector>    <networkConnector conduitSubscriptions="true" consumerTTL="1" messageTTL="-1"  name="TopicConnector_ConnectingBroker_1_To_3" userName="
+            - Ref: Username
+            - '" uri="static:('
+            - Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                - Broker3
+                - OpenWireEndpoints
+            - |-
+              )">
+                    <excludedDestinations>
+                      <queue physicalName=">"/>
+                    </excludedDestinations>
+                  </networkConnector>  </networkConnectors>
+              </broker>
+      EngineType:
+        Ref: EngineType
+      Name:
+        Fn::Join:
+        - ''
+        - - Ref: AWS::StackName
+          - -Broker1Configuration
+  ConfigurationAssociation3:
+    Type: AWS::AmazonMQ::ConfigurationAssociation
+    Properties:
+      Broker:
+        Ref: Broker3
+      Configuration:
+        Revision:
+          Fn::GetAtt:
+          - Configuration3
+          - Revision
+        Id:
+          Ref: Configuration3
+  Broker2:
+    Type: AWS::AmazonMQ::Broker
+    Properties:
+      SecurityGroups:
+        Ref: SecurityGroups
+      EngineVersion:
+        Ref: EngineVersion
+      DeploymentMode: SINGLE_INSTANCE
+      EngineType:
+        Ref: EngineType
+      HostInstanceType:
+        Ref: HostInstanceType
+      AutoMinorVersionUpgrade:
+        Ref: AutoMinorVersionUpgrade
+      PubliclyAccessible:
+        Ref: PubliclyAccessible
+      Users:
+      - Username:
+          Ref: Username
+        Groups: [
+          ]
+        ConsoleAccess: true
+        Password:
+          Ref: Password
+      Logs:
+        Audit:
+          Ref: LogsAudit
+        General:
+          Ref: LogsGeneral
+      SubnetIds:
+        Ref: Broker1SubnetIds
+      BrokerName:
+        Fn::Join:
+        - ''
+        - - Ref: AWS::StackName
+          - -Broker2
+  Configuration3:
+    Type: AWS::AmazonMQ::Configuration
+    Properties:
+      EngineVersion:
+        Ref: EngineVersion
+      Description: Generated configuration to build a network of brokers.
+      Data:
+        Fn::Base64:
+          Fn::Join:
+          - ''
+          - - |-
+              <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+              <broker xmlns="http://activemq.apache.org/schema/core" start="false">
+                <networkConnectors>
+                  <networkConnector conduitSubscriptions="false" consumerTTL="1" messageTTL="-1"  name="QueueConnector_ConnectingBroker_3_To_1" userName="
+            - Ref: Username
+            - '" uri="static:('
+            - Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                - Broker1
+                - OpenWireEndpoints
+            - |-
+              )">
+                    <excludedDestinations>
+                      <topic physicalName=">"/>
+                    </excludedDestinations>
+                  </networkConnector>    <networkConnector conduitSubscriptions="true" consumerTTL="1" messageTTL="-1"  name="TopicConnector_ConnectingBroker_3_To_1" userName="
+            - Ref: Username
+            - '" uri="static:('
+            - Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                - Broker1
+                - OpenWireEndpoints
+            - |-
+              )">
+                    <excludedDestinations>
+                      <queue physicalName=">"/>
+                    </excludedDestinations>
+                  </networkConnector>    <networkConnector conduitSubscriptions="false" consumerTTL="1" messageTTL="-1"  name="QueueConnector_ConnectingBroker_3_To_2" userName="
+            - Ref: Username
+            - '" uri="static:('
+            - Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                - Broker2
+                - OpenWireEndpoints
+            - |-
+              )">
+                    <excludedDestinations>
+                      <topic physicalName=">"/>
+                    </excludedDestinations>
+                  </networkConnector>    <networkConnector conduitSubscriptions="true" consumerTTL="1" messageTTL="-1"  name="TopicConnector_ConnectingBroker_3_To_2" userName="
+            - Ref: Username
+            - '" uri="static:('
+            - Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                - Broker2
+                - OpenWireEndpoints
+            - |-
+              )">
+                    <excludedDestinations>
+                      <queue physicalName=">"/>
+                    </excludedDestinations>
+                  </networkConnector>  </networkConnectors>
+              </broker>
+      EngineType:
+        Ref: EngineType
+      Name:
+        Fn::Join:
+        - ''
+        - - Ref: AWS::StackName
+          - -Broker3Configuration
+  Configuration2:
+    Type: AWS::AmazonMQ::Configuration
+    Properties:
+      EngineVersion:
+        Ref: EngineVersion
+      Description: Generated configuration to build a network of brokers.
+      Data:
+        Fn::Base64:
+          Fn::Join:
+          - ''
+          - - |-
+              <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+              <broker xmlns="http://activemq.apache.org/schema/core" start="false">
+                <networkConnectors>
+                  <networkConnector conduitSubscriptions="false" consumerTTL="1" messageTTL="-1"  name="QueueConnector_ConnectingBroker_2_To_1" userName="
+            - Ref: Username
+            - '" uri="static:('
+            - Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                - Broker1
+                - OpenWireEndpoints
+            - |-
+              )">
+                    <excludedDestinations>
+                      <topic physicalName=">"/>
+                    </excludedDestinations>
+                  </networkConnector>    <networkConnector conduitSubscriptions="true" consumerTTL="1" messageTTL="-1"  name="TopicConnector_ConnectingBroker_2_To_1" userName="
+            - Ref: Username
+            - '" uri="static:('
+            - Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                - Broker1
+                - OpenWireEndpoints
+            - |-
+              )">
+                    <excludedDestinations>
+                      <queue physicalName=">"/>
+                    </excludedDestinations>
+                  </networkConnector>    <networkConnector conduitSubscriptions="false" consumerTTL="1" messageTTL="-1"  name="QueueConnector_ConnectingBroker_2_To_3" userName="
+            - Ref: Username
+            - '" uri="static:('
+            - Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                - Broker3
+                - OpenWireEndpoints
+            - |-
+              )">
+                    <excludedDestinations>
+                      <topic physicalName=">"/>
+                    </excludedDestinations>
+                  </networkConnector>    <networkConnector conduitSubscriptions="true" consumerTTL="1" messageTTL="-1"  name="TopicConnector_ConnectingBroker_2_To_3" userName="
+            - Ref: Username
+            - '" uri="static:('
+            - Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                - Broker3
+                - OpenWireEndpoints
+            - |-
+              )">
+                    <excludedDestinations>
+                      <queue physicalName=">"/>
+                    </excludedDestinations>
+                  </networkConnector>  </networkConnectors>
+              </broker>
+      EngineType:
+        Ref: EngineType
+      Name:
+        Fn::Join:
+        - ''
+        - - Ref: AWS::StackName
+          - -Broker2Configuration

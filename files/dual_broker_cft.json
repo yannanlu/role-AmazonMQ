@@ -1,0 +1,587 @@
+{
+  "Parameters": {
+    "SecurityGroup": {
+      "Type": "String",
+      "Description": "The security group ID that authorize connections to brokers.",
+      "AllowedPattern": ".+"
+    },
+    "EngineVersion": {
+      "Type": "String",
+      "Description": "We recommend using the latest engine version (selected by default).",
+      "AllowedPattern": "\\d\\.\\d{1,2}\\.\\d{1,2}",
+      "Default": "5.15.8"
+    },
+    "LogsGeneral": {
+      "Type": "String",
+      "AllowedValues": [
+        "true",
+        "false"
+      ],
+      "Description": "Enables general logging.",
+      "Default": false
+    },
+    "HostInstanceType": {
+      "Type": "String",
+      "AllowedValues": [
+        "mq.t2.micro",
+        "mq.m4.large",
+        "mq.m5.large",
+        "mq.m5.xlarge",
+        "mq.m5.2xlarge",
+        "mq.m5.4xlarge"
+      ],
+      "Description": "Which EC2 instance do you want your brokers to run on?",
+      "Default": "mq.t2.micro"
+    },
+    "AutoMinorVersionUpgrade": {
+      "Type": "String",
+      "AllowedValues": [
+        "true",
+        "false"
+      ],
+      "Description": "Enables automatic upgrades to new minor versions for brokers, as Apache releases the versions. The automatic upgrades occur during the maintenance window of the broker or after a manual broker reboot.",
+      "Default": false
+    },
+    "LogsAudit": {
+      "Type": "String",
+      "AllowedValues": [
+        "true",
+        "false"
+      ],
+      "Description": "Enables audit logging. Every user management action made using JMS or the ActiveMQ Web Console is logged.",
+      "Default": false
+    },
+    "Broker1SubnetId": {
+      "Type": "String",
+      "Description": "The subnet ID that define into which Availability Zones and VPC the broker will be placed. A SINGLE_INSTANCE deployment requires exactly one subnet (for example, the default subnet).",
+      "AllowedPattern": ".+"
+    },
+    "Username": {
+      "Type": "String",
+      "Description": "The username of the ActiveMQ user. This value can contain only alphanumeric characters, dashes, periods, underscores, and tildes (- . _ ~). This value must be 2-100 characters long.",
+      "AllowedPattern": "[a-zA-Z0-9\\-._~]{2,100}",
+      "Default": "ylutest"
+    },
+    "Broker2SubnetId": {
+      "Type": "String",
+      "Description": "The subnet ID that define into which Availability Zones and VPC the broker will be placed. A SINGLE_INSTANCE deployment requires exactly one subnet (for example, the default subnet).",
+      "AllowedPattern": ".+"
+    },
+    "EngineType": {
+      "Type": "String",
+      "AllowedValues": [
+        "ACTIVEMQ"
+      ],
+      "Description": "We currently only support ActiveMQ (selected by default).",
+      "Default": "ACTIVEMQ"
+    },
+    "PubliclyAccessible": {
+      "Type": "String",
+      "AllowedValues": [
+        "true",
+        "false"
+      ],
+      "Description": "Enables connections from applications outside of the VPC that hosts the broker's subnets.",
+      "Default": true
+    },
+    "Password": {
+      "NoEcho": true,
+      "Type": "String",
+      "Description": "The password of the user. This value must be 12-250 characters long, must contain at least 4 unique characters, and can only contain alphanumeric characters (a-z, A-Z, 0-9).",
+      "AllowedPattern": "^\\p{Alnum}*(\\p{Alnum})\\p{Alnum}*((?!\\1)\\p{Alnum})\\p{Alnum}*((?!\\1|\\2)\\p{Alnum})\\p{Alnum}*((?!\\1|\\2|\\3)\\p{Alnum})\\p{Alnum}*$",
+      "MinLength": 12,
+      "MaxLength": 250
+    }
+  },
+  "Outputs": {
+    "Broker1Ip": {
+      "Description": "IpAddress of Broker1.",
+      "Value": {
+        "Fn::Select": [
+          0,
+          {
+            "Fn::GetAtt": [
+              "Broker1",
+              "IpAddresses"
+            ]
+          }
+        ]
+      }
+    },
+    "Broker2Ip": {
+      "Description": "IpAddress of Broker2.",
+      "Value": {
+        "Fn::Select": [
+          0,
+          {
+            "Fn::GetAtt": [
+              "Broker2",
+              "IpAddresses"
+            ]
+          }
+        ]
+      }
+    },
+    "Broker1WebConsoleURL": {
+      "Description": "WebConsoleURL for Broker1.",
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            "https:",
+            {
+              "Fn::Select": [
+                1,
+                {
+                  "Fn::Split": [
+                    ":",
+                    {
+                      "Fn::Select": [
+                        0,
+                        {
+                          "Fn::GetAtt": [
+                            "Broker1",
+                            "OpenWireEndpoints"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            ":8162"
+          ]
+        ]
+      }
+    },
+    "Broker2WebConsoleURL": {
+      "Description": "WebConsoleURL for Broker2.",
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            "https:",
+            {
+              "Fn::Select": [
+                1,
+                {
+                  "Fn::Split": [
+                    ":",
+                    {
+                      "Fn::Select": [
+                        0,
+                        {
+                          "Fn::GetAtt": [
+                            "Broker2",
+                            "OpenWireEndpoints"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            ":8162"
+          ]
+        ]
+      }
+    },
+    "Broker1ConnectionString": {
+      "Description": "Use this connection string to connect to Broker1.",
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            "failover:(",
+            {
+              "Fn::Select": [
+                0,
+                {
+                  "Fn::GetAtt": [
+                    "Broker1",
+                    "OpenWireEndpoints"
+                  ]
+                }
+              ]
+            },
+            ")"
+          ]
+        ]
+      }
+    },
+    "Broker2ConnectionString": {
+      "Description": "Use this connection string to connect to Broker2.",
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            "failover:(",
+            {
+              "Fn::Select": [
+                0,
+                {
+                  "Fn::GetAtt": [
+                    "Broker2",
+                    "OpenWireEndpoints"
+                  ]
+                }
+              ]
+            },
+            ")"
+          ]
+        ]
+      }
+    },
+    "AllBrokersConnectionString": {
+      "Description": "Use this connection string to connect to ANY broker in the network.",
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            "failover:(",
+            {
+              "Fn::Select": [
+                0,
+                {
+                  "Fn::GetAtt": [
+                    "Broker1",
+                    "OpenWireEndpoints"
+                  ]
+                }
+              ]
+            },
+            ",",
+            {
+              "Fn::Select": [
+                0,
+                {
+                  "Fn::GetAtt": [
+                    "Broker2",
+                    "OpenWireEndpoints"
+                  ]
+                }
+              ]
+            },
+            ")"
+          ]
+        ]
+      }
+    }
+  },
+  "Resources": {
+    "ConfigurationAssociation1": {
+      "Type": "AWS::AmazonMQ::ConfigurationAssociation",
+      "Properties": {
+        "Broker": {
+          "Ref": "Broker1"
+        },
+        "Configuration": {
+          "Revision": {
+            "Fn::GetAtt": [
+              "Configuration1",
+              "Revision"
+            ]
+          },
+          "Id": {
+            "Ref": "Configuration1"
+          }
+        }
+      }
+    },
+    "ConfigurationAssociation2": {
+      "Type": "AWS::AmazonMQ::ConfigurationAssociation",
+      "Properties": {
+        "Broker": {
+          "Ref": "Broker2"
+        },
+        "Configuration": {
+          "Revision": {
+            "Fn::GetAtt": [
+              "Configuration2",
+              "Revision"
+            ]
+          },
+          "Id": {
+            "Ref": "Configuration2"
+          }
+        }
+      }
+    },
+    "Broker1": {
+      "Type": "AWS::AmazonMQ::Broker",
+      "Properties": {
+        "SecurityGroups": [{
+          "Ref": "SecurityGroup"
+        }],
+        "EngineVersion": {
+          "Ref": "EngineVersion"
+        },
+        "DeploymentMode": "SINGLE_INSTANCE",
+        "EngineType": {
+          "Ref": "EngineType"
+        },
+        "HostInstanceType": {
+          "Ref": "HostInstanceType"
+        },
+        "AutoMinorVersionUpgrade": {
+          "Ref": "AutoMinorVersionUpgrade"
+        },
+        "PubliclyAccessible": {
+          "Ref": "PubliclyAccessible"
+        },
+        "Users": [
+          {
+            "Username": {
+              "Ref": "Username"
+            },
+            "Groups": [],
+            "ConsoleAccess": true,
+            "Password": {
+              "Ref": "Password"
+            }
+          }
+        ],
+        "Logs": {
+          "Audit": {
+            "Ref": "LogsAudit"
+          },
+          "General": {
+            "Ref": "LogsGeneral"
+          }
+        },
+        "SubnetIds": [{
+          "Ref": "Broker1SubnetId"
+        }],
+        "BrokerName": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "AWS::StackName"
+              },
+              "-Broker1"
+            ]
+          ]
+        }
+      }
+    },
+    "Configuration1": {
+      "Type": "AWS::AmazonMQ::Configuration",
+      "Properties": {
+        "EngineVersion": {
+          "Ref": "EngineVersion"
+        },
+        "Description": "Generated configuration to build a network of brokers.",
+        "Data": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n",
+                "<broker xmlns=\"http://activemq.apache.org/schema/core\" start=\"false\">\n",
+                "  <networkConnectors>\n",
+                "    <networkConnector conduitSubscriptions=\"false\" consumerTTL=\"1\" messageTTL=\"-1\"  name=\"QueueConnector_ConnectingBroker_1_To_2\" userName=\"",
+                {
+                  "Ref": "Username"
+                },
+                "\" uri=\"static:(",
+                {
+                  "Fn::Select": [
+                    0,
+                    {
+                      "Fn::GetAtt": [
+                        "Broker2",
+                        "OpenWireEndpoints"
+                      ]
+                    }
+                  ]
+                },
+                ")\">\n",
+                "      <excludedDestinations>\n",
+                "        <topic physicalName=\"&gt;\"/>\n",
+                "      </excludedDestinations>\n",
+                "    </networkConnector>\n",
+                "    <networkConnector conduitSubscriptions=\"true\" consumerTTL=\"1\" messageTTL=\"-1\"  name=\"TopicConnector_ConnectingBroker_1_To_2\" userName=\"",
+                {
+                  "Ref": "Username"
+                },
+                "\" uri=\"static:(",
+                {
+                  "Fn::Select": [
+                    0,
+                    {
+                      "Fn::GetAtt": [
+                        "Broker2",
+                        "OpenWireEndpoints"
+                      ]
+                    }
+                  ]
+                },
+                ")\">\n",
+                "      <excludedDestinations>\n",
+                "        <queue physicalName=\"&gt;\"/>\n",
+                "      </excludedDestinations>\n",
+                "    </networkConnector>\n",
+                "  </networkConnectors>\n",
+                "</broker>"
+              ]
+            ]
+          }
+        },
+        "EngineType": {
+          "Ref": "EngineType"
+        },
+        "Name": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "AWS::StackName"
+              },
+              "-Broker1Configuration"
+            ]
+          ]
+        }
+      }
+    },
+    "Broker2": {
+      "Type": "AWS::AmazonMQ::Broker",
+      "Properties": {
+        "SecurityGroups": [{
+          "Ref": "SecurityGroup"
+        }],
+        "EngineVersion": {
+          "Ref": "EngineVersion"
+        },
+        "DeploymentMode": "SINGLE_INSTANCE",
+        "EngineType": {
+          "Ref": "EngineType"
+        },
+        "HostInstanceType": {
+          "Ref": "HostInstanceType"
+        },
+        "AutoMinorVersionUpgrade": {
+          "Ref": "AutoMinorVersionUpgrade"
+        },
+        "PubliclyAccessible": {
+          "Ref": "PubliclyAccessible"
+        },
+        "Users": [
+          {
+            "Username": {
+              "Ref": "Username"
+            },
+            "Groups": [],
+            "ConsoleAccess": true,
+            "Password": {
+              "Ref": "Password"
+            }
+          }
+        ],
+        "Logs": {
+          "Audit": {
+            "Ref": "LogsAudit"
+          },
+          "General": {
+            "Ref": "LogsGeneral"
+          }
+        },
+        "SubnetIds": [{
+          "Ref": "Broker2SubnetId"
+        }],
+        "BrokerName": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "AWS::StackName"
+              },
+              "-Broker2"
+            ]
+          ]
+        }
+      }
+    },
+    "Configuration2": {
+      "Type": "AWS::AmazonMQ::Configuration",
+      "Properties": {
+        "EngineVersion": {
+          "Ref": "EngineVersion"
+        },
+        "Description": "Generated configuration to build a network of brokers.",
+        "Data": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n",
+                "<broker xmlns=\"http://activemq.apache.org/schema/core\" start=\"false\">\n",
+                "  <networkConnectors>\n",
+                "    <networkConnector conduitSubscriptions=\"false\" consumerTTL=\"1\" messageTTL=\"-1\"  name=\"QueueConnector_ConnectingBroker_2_To_1\" userName=\"",
+                {
+                  "Ref": "Username"
+                },
+                "\" uri=\"static:(",
+                {
+                  "Fn::Select": [
+                    0,
+                    {
+                      "Fn::GetAtt": [
+                        "Broker1",
+                        "OpenWireEndpoints"
+                      ]
+                    }
+                  ]
+                },
+                ")\">\n",
+                "      <excludedDestinations>\n",
+                "        <topic physicalName=\"&gt;\"/>\n",
+                "      </excludedDestinations>\n",
+                "    </networkConnector>\n",
+                "    <networkConnector conduitSubscriptions=\"true\" consumerTTL=\"1\" messageTTL=\"-1\"  name=\"TopicConnector_ConnectingBroker_2_To_1\" userName=\"",
+                {
+                  "Ref": "Username"
+                },
+                "\" uri=\"static:(",
+                {
+                  "Fn::Select": [
+                    0,
+                    {
+                      "Fn::GetAtt": [
+                        "Broker1",
+                        "OpenWireEndpoints"
+                      ]
+                    }
+                  ]
+                },
+                ")\">\n",
+                "      <excludedDestinations>\n",
+                "        <queue physicalName=\"&gt;\"/>\n",
+                "      </excludedDestinations>\n",
+                "    </networkConnector>\n",
+                "  </networkConnectors>\n",
+                "</broker>"
+              ]
+            ]
+          }
+        },
+        "EngineType": {
+          "Ref": "EngineType"
+        },
+        "Name": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "AWS::StackName"
+              },
+              "-Broker2Configuration"
+            ]
+          ]
+        }
+      }
+    }
+  }
+}
